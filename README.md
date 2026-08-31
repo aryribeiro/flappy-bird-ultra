@@ -1,3 +1,5 @@
+<img width="1150" height="901" alt="print" src="https://github.com/user-attachments/assets/219ef2a5-3e2a-44de-a6cf-6ae61ee30ac0" />
+
 # Flappy Bird Ultra
 
 Flappy Bird com tiro: voe pelos canos, atire nos inimigos com **ESPAÇO**, compre armas no meio do voo (sem pausa) e entre no ranking **Top 10**.
