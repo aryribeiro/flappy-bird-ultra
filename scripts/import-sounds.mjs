@@ -40,6 +40,7 @@ const MAP = {
   pipe: ['iface', 'select_001.ogg', 0.1],
   combo: ['digital', 'phaserUp1.ogg', 0.5],
   shield: ['impact', 'impactGlass_light_000.ogg', 0.3],
+  break: ['impact', 'impactWood_heavy_000.ogg', 0.5],
 };
 
 async function download(url, dest) {

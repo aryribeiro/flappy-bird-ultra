@@ -11,7 +11,7 @@
 
 import { rngInt, rngRange } from './prng';
 
-export const SIM_VERSION = 'fbu-2';
+export const SIM_VERSION = 'fbu-3';
 
 export const TICK_RATE = 60;
 export const TICK_MS = 1000 / TICK_RATE;
@@ -55,6 +55,7 @@ const COIN_VALUE = 1;
 
 // Pontuação
 export const PTS_PIPE = 10;
+export const PTS_PIPE_BREAK = 30; // metade de cano destruída pelo LASER (sem multiplicador de combo)
 export const COMBO_MAX = 8;
 const COMBO_TICKS = 180;
 
@@ -101,7 +102,8 @@ const SIN32 = [
 // ---------------------------------------------------------------------------
 // Entidades (todas em ponto fixo)
 // ---------------------------------------------------------------------------
-export interface Pipe { id: number; x: number; gapY: number; gapH: number; passed: boolean; }
+// topGone/botGone: metade destruída pelo LASER (única arma que corta cano)
+export interface Pipe { id: number; x: number; gapY: number; gapH: number; passed: boolean; topGone: boolean; botGone: boolean; }
 export interface Enemy { id: number; kind: EnemyKind; x: number; y: number; vx: number; baseY: number; hp: number; phase: number; amp: number; flash: number; }
 export interface Bullet { id: number; x: number; y: number; vx: number; vy: number; dmg: number; pierce: number; len: number; tier: WeaponTier; hit: number[]; }
 export interface Coin { id: number; x: number; y: number; spin: number; }
@@ -109,7 +111,7 @@ export interface Capsule { id: number; kind: CapsuleKind; x: number; y: number; 
 
 export type SimEventType =
   | 'flap' | 'shoot' | 'hit' | 'kill' | 'pipe' | 'coin' | 'buy' | 'deny'
-  | 'shield_pop' | 'die' | 'combo_up' | 'combo_lost' | 'bullet_wall';
+  | 'shield_pop' | 'die' | 'combo_up' | 'combo_lost' | 'bullet_wall' | 'pipe_break';
 
 export interface SimEvent { type: SimEventType; x: number; y: number; v: number; }
 
@@ -170,7 +172,7 @@ function spawnPipe(s: SimState) {
   const hi = F(SKY_H - GAP_MARGIN) - (gapH >> 1);
   const gapY = rngRange(s, lo, hi);
   const x = s.nextPipeX;
-  s.pipes.push({ id: s.nextId++, x, gapY, gapH, passed: false });
+  s.pipes.push({ id: s.nextId++, x, gapY, gapH, passed: false, topGone: false, botGone: false });
   s.pipesSpawned = n + 1;
   s.nextPipeX = x + PIPE_SPACING;
 
@@ -319,13 +321,13 @@ export function step(s: SimState, input: number): void {
     if (p.x + PIPE_W < F(-10)) s.pipes.splice(i, 1);
   }
 
-  // --- colisão pássaro x cano
+  // --- colisão pássaro x cano (metade destruída não colide)
   for (const p of s.pipes) {
     if (p.x > BIRD_X + BIRD_R || p.x + PIPE_W < BIRD_X - BIRD_R) continue;
     const top = p.gapY - (p.gapH >> 1);
     const bot = p.gapY + (p.gapH >> 1);
-    if (circleRect(BIRD_X, s.y, BIRD_R, p.x, 0, PIPE_W, top) ||
-        circleRect(BIRD_X, s.y, BIRD_R, p.x, bot, PIPE_W, F(SKY_H) - bot)) {
+    if ((!p.topGone && circleRect(BIRD_X, s.y, BIRD_R, p.x, 0, PIPE_W, top)) ||
+        (!p.botGone && circleRect(BIRD_X, s.y, BIRD_R, p.x, bot, PIPE_W, F(SKY_H) - bot))) {
       die(s, 'pipe');
       return;
     }
@@ -409,15 +411,26 @@ export function step(s: SimState, input: number): void {
     b.x += b.vx;
     b.y += b.vy;
     if (b.x > F(W + 60) || b.y < F(-20) || b.y > F(SKY_H + 20)) { s.bullets.splice(i, 1); continue; }
-    // cano é indestrutível: bala some
+    // cano: indestrutível para todo tiro, EXCETO o LASER, que destrói a metade atingida
     let wall = false;
     for (const p of s.pipes) {
       if (b.x < p.x || b.x > p.x + PIPE_W) continue;
       const top = p.gapY - (p.gapH >> 1);
       const bot = p.gapY + (p.gapH >> 1);
-      if (b.y < top || b.y > bot) { wall = true; break; }
+      const hitTop = b.y < top && !p.topGone;
+      const hitBot = b.y > bot && !p.botGone;
+      if (!hitTop && !hitBot) continue;
+      if (b.tier === 4) {
+        if (hitTop) p.topGone = true; else p.botGone = true;
+        s.score += PTS_PIPE_BREAK;
+        emit(s, 'pipe_break', b.x, b.y, PTS_PIPE_BREAK);
+      } else {
+        emit(s, 'bullet_wall', b.x, b.y);
+      }
+      wall = true; // o projétil é consumido nos dois casos (o laser gasta o corte)
+      break;
     }
-    if (wall) { emit(s, 'bullet_wall', b.x, b.y); s.bullets.splice(i, 1); continue; }
+    if (wall) { s.bullets.splice(i, 1); continue; }
 
     let dead = false;
     for (let j = s.enemies.length - 1; j >= 0; j--) {
@@ -443,7 +456,7 @@ export function hashState(s: SimState): number {
     h ^= v >>> 16; h = Math.imul(h, 0x01000193) >>> 0;
   };
   mix(s.tick); mix(s.y); mix(s.vy); mix(s.rng); mix(s.score); mix(s.coins$); mix(s.weapon); mix(s.combo);
-  for (const p of s.pipes) { mix(p.x); mix(p.gapY); }
+  for (const p of s.pipes) { mix(p.x); mix(p.gapY); mix((p.topGone ? 1 : 0) + (p.botGone ? 2 : 0)); }
   for (const e of s.enemies) { mix(e.x); mix(e.y); mix(e.hp); }
   for (const b of s.bullets) { mix(b.x); mix(b.y); }
   for (const c of s.coins) { mix(c.x); mix(c.y); }

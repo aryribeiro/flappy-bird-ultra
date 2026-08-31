@@ -9,11 +9,18 @@ import { issueGameToken, verifyGameToken, hashIp } from '../lib/anticheat';
 import { simulateReplay, MAX_REPLAY_ENTRIES } from '../game/replay';
 import { SIM_VERSION, TICK_MS } from '../game/sim';
 
-const SUBMITS_PER_HOUR_PER_IP = 10;
+// Jogador assíduo salva uma partida a cada ~1,5 min; a re-simulação já impede forja,
+// então o rate-limit só precisa conter spam de linhas no banco. (10/h rejeitou jogador real.)
+const SUBMITS_PER_HOUR_PER_IP = 30;
 const REPLAY_TIME_SLACK_MS = 4000;
 
 export interface LeaderboardResponse { online: boolean; data: LeaderboardEntry[]; }
-export interface SubmitScoreResponse extends LeaderboardResponse { accepted: boolean; }
+export interface SubmitScoreResponse extends LeaderboardResponse {
+  accepted: boolean;
+  // Só o rate-limit é nomeado (é observável de fora de toda forma); as checagens
+  // anti-cheat continuam sem oráculo — todas respondem igual.
+  reason?: 'rate_limit';
+}
 
 export interface SubmitScorePayload {
   name: string;
@@ -67,7 +74,10 @@ export async function submitScoreAction(payload: SubmitScorePayload): Promise<Su
   const h = await headers();
   const ip = (h.get('x-forwarded-for') || '').split(',')[0].trim() || 'unknown';
   const ipHash = hashIp(ip);
-  if ((await countRecentSubmissions(ipHash)) >= SUBMITS_PER_HOUR_PER_IP) return reject('rate limit por IP');
+  if ((await countRecentSubmissions(ipHash)) >= SUBMITS_PER_HOUR_PER_IP) {
+    console.warn('[anticheat] submissão rejeitada: rate limit por IP');
+    return { online: true, accepted: false, reason: 'rate_limit', data: await getTopLeaderboard() };
+  }
 
   if (!(await consumeGameSession(session.sid))) return reject('sessão já utilizada');
 

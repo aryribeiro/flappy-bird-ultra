@@ -70,6 +70,32 @@ test('replay adulterado é rejeitado: score declarado diferente do recomputado',
   assert.equal(validateInputs([10, 9]), false);
 });
 
+test('LASER destrói a metade do cano que atinge; as outras armas não', () => {
+  const run = (weapon: 1 | 4, ticks: number) => {
+    const s = createSim(42);
+    while (s.pipes.length === 0 && s.tick < 600) step(s, 0);
+    const p = s.pipes[0];
+    s.weapon = weapon;
+    const wallY = p.gapY - (p.gapH >> 1) - 20 * SCALE; // altura da parede de CIMA
+    let broke = false;
+    const before = s.score;
+    for (let i = 0; i < ticks && s.status === 'playing'; i++) {
+      s.y = wallY; s.vy = 0; // teste segura o pássaro na altura da parede
+      step(s, IN_SHOOT);
+      if (s.events.some((e) => e.type === 'pipe_break')) { broke = true; break; }
+    }
+    return { s, broke, gained: s.score - before };
+  };
+  const laser = run(4, 300);
+  assert.equal(laser.broke, true, 'laser quebra o cano');
+  assert.ok(laser.s.pipes.some((p) => p.topGone), 'metade de cima marcada como destruída');
+  assert.ok(laser.gained >= 30, 'pontuou pela quebra');
+
+  const single = run(1, 200);
+  assert.equal(single.broke, false, 'PIPOCO não quebra cano');
+  assert.ok(!single.s.pipes.some((p) => p.topGone || p.botGone));
+});
+
 test('seeds diferentes geram partidas diferentes', () => {
   const a = createSim(1), b = createSim(2);
   for (let i = 0; i < 300; i++) { step(a, 0); step(b, 0); }

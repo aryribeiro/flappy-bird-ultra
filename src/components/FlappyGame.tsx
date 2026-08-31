@@ -47,7 +47,7 @@ export default function FlappyGame() {
   const emoji = AVATAR_EMOJIS.some((a) => a.emoji === emojiRaw) ? emojiRaw : AVATAR_EMOJIS[0].emoji;
   const [mutedStr] = useLocalValue(LS.muted, 'false');
   const muted = mutedStr === 'true';
-  const [submitState, setSubmitState] = useState<'idle' | 'sending' | 'accepted' | 'rejected'>('idle');
+  const [submitState, setSubmitState] = useState<'idle' | 'sending' | 'accepted' | 'rejected' | 'rate_limited'>('idle');
   const [showBoard, setShowBoard] = useState(false);
 
   // ---------------------------------------------------------------- sessão
@@ -206,6 +206,7 @@ export default function FlappyGame() {
           case 'buy': sound.play('buy', 0.8); vibrate([20, 30, 40]); break;
           case 'deny': sound.play('deny', 0.6); vibrate(40); break;
           case 'shield_pop': sound.play('shield', 0.8); vibrate(60); break;
+          case 'pipe_break': sound.play('break', 0.85, 0.92 + Math.random() * 0.16, 40); vibrate(25); break;
           case 'combo_up': if (ev.v >= 3) sound.play('combo', 0.5, 1 + (ev.v - 3) * 0.12); break;
           case 'die': sound.play('die', 0.9); vibrate([60, 40, 120]); break;
         }
@@ -289,7 +290,7 @@ export default function FlappyGame() {
     try {
       const res = await submitScoreAction({ name, emoji, token: result.session.token, score: result.score, inputs: result.inputs });
       setBoard({ online: res.online, data: res.data });
-      setSubmitState(res.accepted ? 'accepted' : 'rejected');
+      setSubmitState(res.accepted ? 'accepted' : res.reason === 'rate_limit' ? 'rate_limited' : 'rejected');
       if (res.accepted) setShowBoard(true);
     } catch {
       setSubmitState('rejected');
@@ -376,6 +377,8 @@ export default function FlappyGame() {
                   <p className="text-xs font-mono text-zinc-500">Ranking indisponível nesta partida (modo offline).</p>
                 ) : submitState === 'accepted' ? (
                   <p className="text-sm font-bold text-emerald-300">Salvo no Top 10! 🏆</p>
+                ) : submitState === 'rate_limited' ? (
+                  <p className="text-xs font-mono text-amber-300">Muitas partidas salvas em pouco tempo — jogue mais uma e tente salvar de novo em alguns minutos.</p>
                 ) : submitState === 'rejected' ? (
                   <p className="text-xs font-mono text-red-400">Não foi possível salvar esta partida.</p>
                 ) : qualifies(result.score) ? (

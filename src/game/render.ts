@@ -444,6 +444,16 @@ export class Renderer {
         case 'bullet_wall':
           this.particles.burst(x, y, 4, 0.1, 200, 3, C_WHITE, Math.PI, Math.PI);
           break;
+        case 'pipe_break':
+          // o laser corta o cano: chuva de estilhaços verdes + fumaça
+          this.particles.burst(x, y, 34, 0.32, 650, 6, C_GREEN);
+          this.particles.burst(x, y, 14, 0.18, 800, 8, C_SMOKE);
+          this.particles.burst(x, y, 10, 0.4, 300, 3, C_LASER);
+          this.shake = Math.max(this.shake, 11);
+          juice.hitStopMs = Math.max(juice.hitStopMs, 70);
+          this.flash = Math.max(this.flash, 0.15); this.flashColor = PAL.laser;
+          this.text(`+${ev.v}`, x - 20, y, this.atlasCyan, 1.2);
+          break;
         case 'die':
           this.deathT = 0;
           this.shake = 26;
@@ -496,17 +506,21 @@ export class Renderer {
     const hx = -(this.scroll * 0.4) % W;
     g.drawImage(this.bg.hills, hx, SKY_H - 120); g.drawImage(this.bg.hills, hx + W, SKY_H - 120);
 
-    // canos
+    // canos (metade destruída pelo laser não é desenhada)
     const pw = px(PIPE_W);
     for (const p of s.pipes) {
       const x = px(p.x) - speedPx * alpha;
       const top = px(p.gapY - (p.gapH >> 1));
       const bot = px(p.gapY + (p.gapH >> 1));
-      if (top > 0) g.drawImage(this.pipe.body, 0, 0, pw * SPR, top * SPR, x, 0, pw, top);
-      g.drawImage(this.pipe.cap, x - 4, top - 26, pw + 8, 26);
-      const bh = SKY_H - bot;
-      if (bh > 0) g.drawImage(this.pipe.body, 0, 0, pw * SPR, bh * SPR, x, bot, pw, bh);
-      g.drawImage(this.pipe.cap, x - 4, bot, pw + 8, 26);
+      if (!p.topGone) {
+        if (top > 0) g.drawImage(this.pipe.body, 0, 0, pw * SPR, top * SPR, x, 0, pw, top);
+        g.drawImage(this.pipe.cap, x - 4, top - 26, pw + 8, 26);
+      }
+      if (!p.botGone) {
+        const bh = SKY_H - bot;
+        if (bh > 0) g.drawImage(this.pipe.body, 0, 0, pw * SPR, bh * SPR, x, bot, pw, bh);
+        g.drawImage(this.pipe.cap, x - 4, bot, pw + 8, 26);
+      }
     }
 
     // moedas

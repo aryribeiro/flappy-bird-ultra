@@ -2,7 +2,7 @@
 // Decodificados uma vez em AudioBuffers no gesto do usuário (warmUp).
 
 export type SfxName =
-  | 'flap' | 'shoot' | 'laser' | 'hit' | 'kill' | 'coin' | 'buy' | 'deny' | 'die' | 'pipe' | 'combo' | 'shield';
+  | 'flap' | 'shoot' | 'laser' | 'hit' | 'kill' | 'coin' | 'buy' | 'deny' | 'die' | 'pipe' | 'combo' | 'shield' | 'break';
 
 const SFX_FILES: Record<SfxName, string> = {
   flap: '/sounds/flap.wav',
@@ -17,6 +17,7 @@ const SFX_FILES: Record<SfxName, string> = {
   pipe: '/sounds/pipe.wav',
   combo: '/sounds/combo.wav',
   shield: '/sounds/shield.wav',
+  break: '/sounds/break.wav',
 };
 
 const MUTE_KEY = 'fbu_muted';

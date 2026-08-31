@@ -8,6 +8,7 @@ Kenney.nl (Kenney Vleugels) — https://kenney.nl — CC0 1.0
   buy.wav     <- Digital Audio / powerUp5
   combo.wav   <- Digital Audio / phaserUp1
   shield.wav  <- Impact Sounds / impactGlass_light_000
+  break.wav   <- Impact Sounds / impactWood_heavy_000
 
 Juhani Junkala — "The Essential Retro Video Game Sound Effects Collection [512 sounds]"
   https://opengameart.org/content/512-sound-effects-8-bit-style — CC0 1.0
