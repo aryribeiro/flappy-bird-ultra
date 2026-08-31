@@ -1,0 +1,20 @@
+Efeitos sonoros de Flappy Bird Ultra — todos em domínio público (CC0 1.0), hospedados localmente.
+
+Kenney.nl (Kenney Vleugels) — https://kenney.nl — CC0 1.0
+  laser.wav   <- Sci-Fi Sounds / laserLarge_000
+  kill.wav    <- Sci-Fi Sounds / explosionCrunch_000
+  die.wav     <- Sci-Fi Sounds / lowFrequency_explosion_000
+  pipe.wav    <- Interface Sounds / select_001
+  buy.wav     <- Digital Audio / powerUp5
+  combo.wav   <- Digital Audio / phaserUp1
+  shield.wav  <- Impact Sounds / impactGlass_light_000
+
+Juhani Junkala — "The Essential Retro Video Game Sound Effects Collection [512 sounds]"
+  https://opengameart.org/content/512-sound-effects-8-bit-style — CC0 1.0
+  flap.wav    <- Movement / sfx_movement_jump1
+  shoot.wav   <- Weapons / sfx_wpn_laser2
+  hit.wav     <- General Sounds / sfx_damage_hit5
+  coin.wav    <- General Sounds / sfx_coin_single3
+  deny.wav    <- General Sounds / sfx_sounds_error3
+
+Convertidos para WAV mono 16-bit 22.05 kHz com pico normalizado (scripts/import-sounds.mjs).

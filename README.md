@@ -1,36 +1,49 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Flappy Bird Ultra
 
-## Getting Started
+Flappy Bird com tiro: voe pelos canos, atire nos inimigos com **ESPAÇO**, compre armas no meio do voo (sem pausa) e entre no ranking **Top 10**.
 
-First, run the development server:
+## Controles
+
+| Ação | PC | Celular |
+|---|---|---|
+| Voar | clique · **W** · **↑** | toque na metade **esquerda** |
+| Atirar | **ESPAÇO** (segurar = automático) · botão direito | toque na metade **direita** (segurar) |
+| Som | **M** | botão 🔊 |
+
+## Como funciona
+
+- **Canos são indestrutíveis.** O tiro age numa segunda camada de ameaça: drones, vespas e tanques que entram pelas frestas dos canos e obrigam a escolher entre subir e atirar.
+- **Economia sob pressão.** Moedas aparecem no voo; a cada 4 canos surge uma cápsula no centro do gap. Encostou com saldo, comprou — sem loja, sem pausa. Sem saldo, ela passa.
+- **Progressão de arma:** PIPOCO → DUPLO ($6) → LEQUE ($14) → LASER ($24, atravessa 3 inimigos). Depois do LASER, as cápsulas trazem ESCUDO ($8, absorve 1 inimigo) e IMÃ ($6, atrai moedas por 10 s).
+- **Pontuação:** cano = 10 · abate = 25/40/90 × combo (até x8; o combo cai após 3 s sem abater). Moedas não pontuam — são recurso.
+
+## Arquitetura (o que importa)
+
+- `src/game/sim.ts` — simulação **determinística** em ponto fixo (só inteiros, PRNG semeado, sem tempo real, sem trigonometria). Mesma semente + mesmos inputs ⇒ mesmo resultado, no navegador e no servidor.
+- `src/game/replay.ts` — replay = semente + mudanças de input por tick. O servidor **re-simula a partida** e grava o score que ele próprio calculou; o cliente nunca é fonte de verdade.
+- `src/game/render.ts` — desenho e *juice* (partículas em buffer tipado, sprites/glifos cacheados, shake, hit-stop, flash). Nada disso toca a simulação.
+- `src/app/actions.ts` — server actions: token HMAC de uso único com semente assinada, rate-limit por IP hasheado, re-simulação, rejeição fail-closed.
+
+## Rodar
 
 ```bash
+npm install
+cp .env.example .env.local   # preencha DB_URL, DB_AUTH_TOKEN, SCORE_SECRET
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Sem banco configurado o jogo roda em modo offline (sem ranking).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+npm test          # determinismo + replay
+npm run typecheck
+npm run sounds    # reimporta os SFX (CC0) a partir das fontes públicas — requer ffmpeg
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Sons
 
-## Learn More
+Todos os efeitos são **CC0** (Kenney.nl e Juhani Junkala/OpenGameArt), convertidos e hospedados localmente em `public/sounds/`. Créditos em `public/sounds/CREDITS.txt`.
 
-To learn more about Next.js, take a look at the following resources:
+## Autor
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Ary Ribeiro · [linkedin.com/in/aryribeiro](https://linkedin.com/in/aryribeiro)
