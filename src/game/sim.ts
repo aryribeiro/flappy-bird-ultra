@@ -11,7 +11,7 @@
 
 import { rngInt, rngRange } from './prng';
 
-export const SIM_VERSION = 'fbu-1';
+export const SIM_VERSION = 'fbu-2';
 
 export const TICK_RATE = 60;
 export const TICK_MS = 1000 / TICK_RATE;
@@ -122,7 +122,7 @@ export interface SimState {
   // mundo
   speed: number;
   pipes: Pipe[]; enemies: Enemy[]; bullets: Bullet[]; coins: Coin[]; capsules: Capsule[];
-  nextPipeX: number; pipesSpawned: number; pipesPassed: number;
+  nextPipeX: number; pipesSpawned: number; pipesPassed: number; lastGapY: number;
   enemyTimer: number; nextId: number;
   // jogador
   weapon: WeaponTier; cooldown: number; coins$: number; shield: boolean; magnet: number;
@@ -137,7 +137,7 @@ export function createSim(seed: number): SimState {
     y: F(SKY_H / 2), vy: 0,
     speed: SPEED_START,
     pipes: [], enemies: [], bullets: [], coins: [], capsules: [],
-    nextPipeX: F(W + 120), pipesSpawned: 0, pipesPassed: 0,
+    nextPipeX: F(W + 120), pipesSpawned: 0, pipesPassed: 0, lastGapY: F(SKY_H / 2),
     enemyTimer: 200, nextId: 1,
     weapon: 1, cooldown: 0, coins$: 0, shield: false, magnet: 0,
     score: 0, combo: 1, comboTimer: 0, kills: 0, coinsTotal: 0,
@@ -174,15 +174,19 @@ function spawnPipe(s: SimState) {
   s.pipesSpawned = n + 1;
   s.nextPipeX = x + PIPE_SPACING;
 
-  // Moedas: fileira/arco entre este cano e o próximo (sempre alcançável)
+  // Moedas: trilha no trecho ANTES deste cano, interpolando do gap anterior para este gap.
+  // As moedas guiam o caminho para dentro da fresta (nunca atraem para fora do gap).
   const count = 3 + rngInt(s, 3); // 3..5
-  const cy = rngRange(s, F(70), F(SKY_H - 70));
   const arc = rngInt(s, 3); // 0 reta, 1 arco p/ cima, 2 arco p/ baixo
-  const startX = x + PIPE_W + F(60);
+  const prevGapY = s.lastGapY;
+  const startX = x - F(200);
   for (let i = 0; i < count; i++) {
+    const t = count > 1 ? Math.trunc((i * 1000) / (count - 1)) : 500; // 0..1000 (inteiro)
+    const baseY = prevGapY + Math.trunc(((gapY - prevGapY) * t) / 1000);
     const bump = arc === 0 ? 0 : arcBump(i, count) * (arc === 1 ? -1 : 1);
-    s.coins.push({ id: s.nextId++, x: startX + F(i * 30), y: cy + F(bump), spin: (i * 5) & 31 });
+    s.coins.push({ id: s.nextId++, x: startX + F(i * 30), y: baseY + F(bump), spin: (i * 5) & 31 });
   }
+  s.lastGapY = gapY;
 
   // Cápsula em ritmo fixo, no centro do gap: escolha sob pressão, previsível
   if (n > 0 && n % CAPSULE_EVERY === 0) {
