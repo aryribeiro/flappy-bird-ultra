@@ -11,7 +11,7 @@
 
 import { rngInt, rngRange } from './prng';
 
-export const SIM_VERSION = 'fbu-3';
+export const SIM_VERSION = 'fbu-4';
 
 export const TICK_RATE = 60;
 export const TICK_MS = 1000 / TICK_RATE;
@@ -29,10 +29,12 @@ const F = (px: number) => Math.round(px * SCALE);
 // Pássaro
 export const BIRD_X = F(150);
 export const BIRD_R = F(12); // hitbox (sprite é maior — "justo" a favor do jogador)
-const GRAVITY = F(0.32);
-const FLAP_VY = F(-6.2);
-const MAX_VY = F(9);
-const MIN_VY = F(-8);
+// Física "planadora" (fbu-4): gravidade e velocidade terminal ~30% menores que o
+// original fbu-1..3 (0.32/-6.2/9), que caía como pedra e matava no início.
+const GRAVITY = F(0.22);
+const FLAP_VY = F(-5.4);
+const MAX_VY = F(6.5);
+const MIN_VY = F(-7);
 
 // Canos
 export const PIPE_W = F(64);
