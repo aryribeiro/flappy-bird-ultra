@@ -162,6 +162,23 @@ function capsuleSprite(kind: CapsuleKind, tier: number): HTMLCanvasElement {
   return c;
 }
 
+function heartSprite(): HTMLCanvasElement {
+  const S = 40 * SPR, [c, g] = mk(S, S);
+  g.scale(SPR, SPR); g.translate(20, 20);
+  const heart = (r: number) => {
+    g.beginPath();
+    g.moveTo(0, r * 0.9);
+    g.bezierCurveTo(-r * 1.3, -r * 0.1, -r * 0.7, -r * 1.1, 0, -r * 0.4);
+    g.bezierCurveTo(r * 0.7, -r * 1.1, r * 1.3, -r * 0.1, 0, r * 0.9);
+    g.closePath();
+  };
+  g.fillStyle = 'rgba(255,255,255,0.9)'; heart(15); g.fill();
+  g.fillStyle = PAL.red; heart(12); g.fill();
+  g.fillStyle = '#ff9a9a'; g.beginPath(); g.ellipse(-4, -5, 3, 2, -0.6, 0, Math.PI * 2); g.fill();
+  g.strokeStyle = '#7a1a1a'; g.lineWidth = 1.5; heart(12); g.stroke();
+  return c;
+}
+
 function bulletSprite(tier: number): HTMLCanvasElement {
   const len = WEAPONS[tier as 1 | 2 | 3 | 4].len, h = tier === 4 ? 10 : 6;
   const [c, g] = mk((len + 6) * SPR, (h + 6) * SPR);
@@ -312,6 +329,7 @@ export class Renderer {
   private coins: HTMLCanvasElement[];
   private capsules = new Map<string, HTMLCanvasElement>();
   private bullets: HTMLCanvasElement[];
+  private heart: HTMLCanvasElement;
   private bg: ReturnType<typeof background>;
   private atlasWhite = new GlyphAtlas(22, PAL.white);
   private atlasGold = new GlyphAtlas(26, PAL.gold);
@@ -341,12 +359,13 @@ export class Renderer {
     this.enemies = [[enemySprite(0, 0), enemySprite(0, 1)], [enemySprite(1, 0), enemySprite(1, 1)], [enemySprite(2, 0), enemySprite(2, 1)]];
     this.coins = Array.from({ length: 12 }, (_, i) => coinSprite(i, 12));
     this.bullets = [bulletSprite(1), bulletSprite(1), bulletSprite(2), bulletSprite(3), bulletSprite(4)];
+    this.heart = heartSprite();
     this.bg = background();
     // Pré-aquece tudo que seria rasterizado no meio da partida (nenhum custo novo durante o jogo)
     const chars = '0123456789+-x$!';
     for (const a of [this.atlasWhite, this.atlasGold, this.atlasRed, this.atlasCyan, this.atlasSmall]) a.width(chars);
-    this.atlasRed.width('FALTAM ');
-    this.atlasCyan.width('ESCUDO!IMÃ!' + Object.values(WEAPONS).map((w) => w.name).join(''));
+    this.atlasRed.width('FALTAM VIDA');
+    this.atlasCyan.width('ESCUDO!IMÃ!VIDA' + Object.values(WEAPONS).map((w) => w.name).join(''));
     for (const kind of ['weapon', 'shield', 'magnet'] as const) {
       for (const tier of [1, 2, 3, 4]) this.capsules.set(`${kind}${tier}`, capsuleSprite(kind, tier));
     }
@@ -454,6 +473,25 @@ export class Renderer {
           this.flash = Math.max(this.flash, 0.15); this.flashColor = PAL.laser;
           this.text(`+${ev.v}`, x - 20, y, this.atlasCyan, 1.2);
           break;
+        case 'life_lost':
+          // impacto no ponto da colisão + "chegada" no meio da tela
+          this.particles.burst(x, y, 40, 0.34, 700, 6, C_RED);
+          this.particles.burst(x, y, 14, 0.18, 900, 8, C_SMOKE);
+          this.particles.burst(px(BIRD_X), SKY_H / 2, 24, 0.22, 500, 4, C_WHITE);
+          this.shake = Math.max(this.shake, 20);
+          this.flash = Math.max(this.flash, 0.5); this.flashColor = PAL.red;
+          juice.hitStopMs = Math.max(juice.hitStopMs, 140);
+          this.text('-1 VIDA', px(BIRD_X), SKY_H / 2 - 40, this.atlasRed, 1.3, 1200);
+          this.visRot = 0;
+          break;
+        case 'heart':
+          this.particles.burst(x, y, 30, 0.26, 700, 5, C_RED);
+          this.particles.burst(x, y, 12, 0.3, 400, 3, C_WHITE);
+          this.flash = Math.max(this.flash, 0.2); this.flashColor = PAL.red;
+          this.shake = Math.max(this.shake, 5);
+          juice.hitStopMs = Math.max(juice.hitStopMs, 60);
+          this.text(ev.v >= 3 ? 'VIDA CHEIA' : '+1 VIDA', x, y - 28, this.atlasCyan, 1.2, 1200);
+          break;
         case 'die':
           this.deathT = 0;
           this.shake = 26;
@@ -543,6 +581,13 @@ export class Renderer {
       (afford ? this.atlasGold : this.atlasRed).draw(g, `$${c.price}`, x, y + bob - 30, 0.7);
     }
 
+    // corações de cura (pulsam)
+    for (const h of s.hearts) {
+      const x = px(h.x) - speedPx * alpha, y = px(h.y) + Math.sin(this.time / 200 + h.id) * 4;
+      const sc = 1 + Math.sin(this.time / 110) * 0.12;
+      g.drawImage(this.heart, x - 20 * sc, y - 20 * sc, 40 * sc, 40 * sc);
+    }
+
     // inimigos
     for (const e of s.enemies) {
       const x = px(e.x) + px(e.vx) * alpha, y = px(e.y);
@@ -594,23 +639,26 @@ export class Renderer {
       g.translate(bx, by);
       g.rotate(this.visRot);
       g.scale(sx, sy);
+      // invencível: pisca (visível/apagado a cada ~70 ms)
+      if (s.inv > 0 && s.status === 'playing') g.globalAlpha = Math.floor(this.time / 70) % 2 === 0 ? 1 : 0.25;
+      const birdAlpha = g.globalAlpha;
       if (s.magnet > 0) {
-        g.globalAlpha = 0.18 + Math.sin(this.time / 90) * 0.06;
+        g.globalAlpha = birdAlpha * (0.18 + Math.sin(this.time / 90) * 0.06);
         g.fillStyle = PAL.purple; g.beginPath(); g.arc(0, 0, 60, 0, Math.PI * 2); g.fill();
-        g.globalAlpha = 1;
+        g.globalAlpha = birdAlpha;
       }
       if (s.shield) {
-        g.globalAlpha = 0.55 + Math.sin(this.time / 120) * 0.15;
+        g.globalAlpha = birdAlpha * (0.55 + Math.sin(this.time / 120) * 0.15);
         g.strokeStyle = PAL.green; g.lineWidth = 3; g.beginPath(); g.arc(0, 0, 24, 0, Math.PI * 2); g.stroke();
-        g.globalAlpha = 1;
+        g.globalAlpha = birdAlpha;
       }
       g.drawImage(this.bird[wing], -28, -28, 56, 56);
       if (this.muzzle > 0) {
-        g.globalAlpha = this.muzzle / 60;
+        g.globalAlpha = birdAlpha * (this.muzzle / 60);
         g.fillStyle = s.weapon === 4 ? PAL.laser : PAL.gold;
         g.beginPath(); g.arc(28, 2, 6 + (60 - this.muzzle) * 0.15, 0, Math.PI * 2); g.fill();
-        g.globalAlpha = 1;
       }
+      g.globalAlpha = 1;
       g.restore();
     }
 

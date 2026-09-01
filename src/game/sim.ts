@@ -11,7 +11,7 @@
 
 import { rngInt, rngRange } from './prng';
 
-export const SIM_VERSION = 'fbu-4';
+export const SIM_VERSION = 'fbu-5';
 
 export const TICK_RATE = 60;
 export const TICK_MS = 1000 / TICK_RATE;
@@ -54,6 +54,16 @@ const COIN_PICK_R = F(26);
 const MAGNET_R = F(110);
 const MAGNET_TICKS = 600;
 const COIN_VALUE = 1;
+
+// Vidas (fbu-5): 3 vidas; colisão gasta uma, teleporta ao centro e dá 3 s de invencibilidade piscando.
+// Escudo absorve UMA colisão (inimigo ou cano) — no cano, 1,5 s de invencibilidade para sair da parede.
+// A cada 5 min de partida aparece UM coração que recupera uma vida (máx. 3).
+export const LIVES_START = 3;
+export const LIVES_MAX = 3;
+export const INV_HIT_TICKS = 180;
+export const INV_SHIELD_TICKS = 90;
+export const HEART_EVERY_TICKS = 5 * 60 * TICK_RATE;
+export const HEART_R = F(14);
 
 // Pontuação
 export const PTS_PIPE = 10;
@@ -110,10 +120,11 @@ export interface Enemy { id: number; kind: EnemyKind; x: number; y: number; vx: 
 export interface Bullet { id: number; x: number; y: number; vx: number; vy: number; dmg: number; pierce: number; len: number; tier: WeaponTier; hit: number[]; }
 export interface Coin { id: number; x: number; y: number; spin: number; }
 export interface Capsule { id: number; kind: CapsuleKind; x: number; y: number; price: number; denied: boolean; tier: WeaponTier; }
+export interface Heart { id: number; x: number; y: number; }
 
 export type SimEventType =
   | 'flap' | 'shoot' | 'hit' | 'kill' | 'pipe' | 'coin' | 'buy' | 'deny'
-  | 'shield_pop' | 'die' | 'combo_up' | 'combo_lost' | 'bullet_wall' | 'pipe_break';
+  | 'shield_pop' | 'die' | 'combo_up' | 'combo_lost' | 'bullet_wall' | 'pipe_break' | 'life_lost' | 'heart';
 
 export interface SimEvent { type: SimEventType; x: number; y: number; v: number; }
 
@@ -125,7 +136,8 @@ export interface SimState {
   y: number; vy: number;
   // mundo
   speed: number;
-  pipes: Pipe[]; enemies: Enemy[]; bullets: Bullet[]; coins: Coin[]; capsules: Capsule[];
+  pipes: Pipe[]; enemies: Enemy[]; bullets: Bullet[]; coins: Coin[]; capsules: Capsule[]; hearts: Heart[];
+  lives: number; inv: number; // inv = ticks restantes de invencibilidade (pisca)
   nextPipeX: number; pipesSpawned: number; pipesPassed: number; lastGapY: number;
   enemyTimer: number; nextId: number;
   // jogador
@@ -140,7 +152,8 @@ export function createSim(seed: number): SimState {
     rng: seed >>> 0, tick: 0, status: 'playing',
     y: F(SKY_H / 2), vy: 0,
     speed: SPEED_START,
-    pipes: [], enemies: [], bullets: [], coins: [], capsules: [],
+    pipes: [], enemies: [], bullets: [], coins: [], capsules: [], hearts: [],
+    lives: LIVES_START, inv: 0,
     nextPipeX: F(W + 120), pipesSpawned: 0, pipesPassed: 0, lastGapY: F(SKY_H / 2),
     enemyTimer: 200, nextId: 1,
     weapon: 1, cooldown: 0, coins$: 0, shield: false, magnet: 0,
@@ -274,6 +287,26 @@ function die(s: SimState, cause: SimState['deathCause']) {
   emit(s, 'die', BIRD_X, s.y);
 }
 
+// Colisão com cano/chão (inimigo trata o escudo por conta própria). Retorna true se morreu.
+function takeHit(s: SimState, cause: SimState['deathCause'], hx: number, hy: number, allowShield: boolean): boolean {
+  if (allowShield && s.shield) {
+    s.shield = false;
+    s.inv = INV_SHIELD_TICKS;
+    emit(s, 'shield_pop', hx, hy);
+    return false;
+  }
+  s.lives--;
+  if (s.lives <= 0) { die(s, cause); return true; }
+  // perde a vida: volta ao meio da tela, piscando e invencível por 3 s; combo zera
+  s.y = F(SKY_H / 2);
+  s.vy = 0;
+  s.inv = INV_HIT_TICKS;
+  s.combo = 1;
+  s.comboTimer = 0;
+  emit(s, 'life_lost', hx, hy, s.lives);
+  return false;
+}
+
 // ---------------------------------------------------------------------------
 // Um tick. Muta o estado; eventos do tick ficam em s.events (limpo no início).
 // ---------------------------------------------------------------------------
@@ -296,9 +329,14 @@ export function step(s: SimState, input: number): void {
   if (s.vy < MIN_VY) s.vy = MIN_VY;
   s.y += s.vy;
   if (s.y < BIRD_R) { s.y = BIRD_R; s.vy = 0; }
-  if (s.y + BIRD_R >= F(SKY_H)) { s.y = F(SKY_H) - BIRD_R; die(s, 'ground'); return; }
+  if (s.y + BIRD_R >= F(SKY_H)) {
+    s.y = F(SKY_H) - BIRD_R;
+    if (s.inv > 0) s.vy = 0; // invencível: só apoia no chão
+    else if (takeHit(s, 'ground', BIRD_X, s.y, true)) return;
+  }
 
   // --- efeitos temporários
+  if (s.inv > 0) s.inv--;
   if (s.magnet > 0) s.magnet--;
   if (s.comboTimer > 0) {
     s.comboTimer--;
@@ -323,16 +361,34 @@ export function step(s: SimState, input: number): void {
     if (p.x + PIPE_W < F(-10)) s.pipes.splice(i, 1);
   }
 
-  // --- colisão pássaro x cano (metade destruída não colide)
-  for (const p of s.pipes) {
-    if (p.x > BIRD_X + BIRD_R || p.x + PIPE_W < BIRD_X - BIRD_R) continue;
-    const top = p.gapY - (p.gapH >> 1);
-    const bot = p.gapY + (p.gapH >> 1);
-    if ((!p.topGone && circleRect(BIRD_X, s.y, BIRD_R, p.x, 0, PIPE_W, top)) ||
-        (!p.botGone && circleRect(BIRD_X, s.y, BIRD_R, p.x, bot, PIPE_W, F(SKY_H) - bot))) {
-      die(s, 'pipe');
-      return;
+  // --- colisão pássaro x cano (metade destruída não colide; invencível atravessa)
+  if (s.inv === 0) {
+    for (const p of s.pipes) {
+      if (p.x > BIRD_X + BIRD_R || p.x + PIPE_W < BIRD_X - BIRD_R) continue;
+      const top = p.gapY - (p.gapH >> 1);
+      const bot = p.gapY + (p.gapH >> 1);
+      if ((!p.topGone && circleRect(BIRD_X, s.y, BIRD_R, p.x, 0, PIPE_W, top)) ||
+          (!p.botGone && circleRect(BIRD_X, s.y, BIRD_R, p.x, bot, PIPE_W, F(SKY_H) - bot))) {
+        if (takeHit(s, 'pipe', BIRD_X, s.y, true)) return;
+        break;
+      }
     }
+  }
+
+  // --- corações de cura: um a cada 5 min, no meio do trecho entre canos, na altura do último gap
+  if (s.tick % HEART_EVERY_TICKS === 0) {
+    s.hearts.push({ id: s.nextId++, x: s.nextPipeX - (PIPE_SPACING >> 1), y: s.lastGapY });
+  }
+  for (let i = s.hearts.length - 1; i >= 0; i--) {
+    const h = s.hearts[i];
+    h.x -= sp;
+    if (circles(BIRD_X, s.y, BIRD_R + F(10), h.x, h.y, HEART_R)) {
+      if (s.lives < LIVES_MAX) s.lives++;
+      emit(s, 'heart', h.x, h.y, s.lives);
+      s.hearts.splice(i, 1);
+      continue;
+    }
+    if (h.x < F(-30)) s.hearts.splice(i, 1);
   }
 
   // --- moedas
@@ -394,7 +450,7 @@ export function step(s: SimState, input: number): void {
       e.y = e.baseY + Math.trunc((e.amp * SIN32[e.phase]) / 1000);
     }
     if (e.x < F(-50)) { s.enemies.splice(i, 1); continue; }
-    if (circles(BIRD_X, s.y, BIRD_R, e.x, e.y, ENEMY_DEF[e.kind].r)) {
+    if (s.inv === 0 && circles(BIRD_X, s.y, BIRD_R, e.x, e.y, ENEMY_DEF[e.kind].r)) {
       if (s.shield) {
         s.shield = false;
         emit(s, 'shield_pop', e.x, e.y);
@@ -402,8 +458,10 @@ export function step(s: SimState, input: number): void {
         s.enemies.splice(i, 1);
         continue;
       }
-      die(s, 'enemy');
-      return;
+      const ex = e.x, ey = e.y;
+      s.enemies.splice(i, 1); // o inimigo que acertou some
+      if (takeHit(s, 'enemy', ex, ey, false)) return;
+      continue;
     }
   }
 
@@ -457,7 +515,7 @@ export function hashState(s: SimState): number {
     h ^= v & 0xffffffff; h = Math.imul(h, 0x01000193) >>> 0;
     h ^= v >>> 16; h = Math.imul(h, 0x01000193) >>> 0;
   };
-  mix(s.tick); mix(s.y); mix(s.vy); mix(s.rng); mix(s.score); mix(s.coins$); mix(s.weapon); mix(s.combo);
+  mix(s.tick); mix(s.y); mix(s.vy); mix(s.rng); mix(s.score); mix(s.coins$); mix(s.weapon); mix(s.combo); mix(s.lives); mix(s.inv);
   for (const p of s.pipes) { mix(p.x); mix(p.gapY); mix((p.topGone ? 1 : 0) + (p.botGone ? 2 : 0)); }
   for (const e of s.enemies) { mix(e.x); mix(e.y); mix(e.hp); }
   for (const b of s.bullets) { mix(b.x); mix(b.y); }

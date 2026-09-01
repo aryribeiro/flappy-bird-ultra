@@ -96,6 +96,64 @@ test('LASER destrói a metade do cano que atinge; as outras armas não', () => {
   assert.ok(!single.s.pipes.some((p) => p.topGone || p.botGone));
 });
 
+test('vidas: colisão gasta 1 vida, teleporta ao meio com invencibilidade; escudo absorve cano; 3 batidas = morte', () => {
+  const CENTER = (436 / 2) * SCALE;
+  // Segura o pássaro na parede de cima do próximo cano até acontecer uma colisão
+  const crash = (s: SimState) => {
+    const p = s.pipes.find((pp) => pp.x + 64 * SCALE > 150 * SCALE)!;
+    const wallY = p.gapY - (p.gapH >> 1) - 20 * SCALE;
+    for (let i = 0; i < 400 && s.status === 'playing'; i++) {
+      s.y = wallY; s.vy = 0;
+      step(s, 0);
+      if (s.events.some((e) => e.type === 'life_lost' || e.type === 'shield_pop' || e.type === 'die')) return s.events[s.events.length - 1].type;
+    }
+    return 'nada';
+  };
+  const waitInv = (s: SimState) => { while (s.inv > 0 && s.status === 'playing') { s.y = CENTER; s.vy = 0; step(s, 0); } };
+
+  const s = createSim(42);
+  while (s.pipes.length === 0) step(s, 0);
+  assert.equal(s.lives, 3);
+
+  // 1) escudo absorve o cano: sem perder vida, com invencibilidade curta
+  s.shield = true;
+  assert.equal(crash(s), 'shield_pop');
+  assert.equal(s.shield, false);
+  assert.equal(s.lives, 3);
+  assert.ok(s.inv > 0 && s.inv <= 90);
+  waitInv(s);
+
+  // 2) sem escudo: perde vida, volta ao centro piscando
+  assert.equal(crash(s), 'life_lost');
+  assert.equal(s.lives, 2);
+  assert.equal(s.y, CENTER);
+  assert.equal(s.inv, 180);
+  assert.equal(s.status, 'playing');
+  waitInv(s);
+
+  // 3) e 4) mais duas batidas: morre na terceira vida
+  assert.equal(crash(s), 'life_lost');
+  assert.equal(s.lives, 1);
+  waitInv(s);
+  assert.equal(crash(s), 'die');
+  assert.equal(s.status, 'dead');
+  assert.equal(s.lives, 0);
+});
+
+test('coração de cura aparece a cada 5 min e recupera até 3 vidas', () => {
+  const s = createSim(7);
+  s.lives = 1;
+  // avança até o coração nascer (tick 18000), mantendo o pássaro invencível e parado no centro do teste
+  for (let t = 0; t < 18000 && s.hearts.length === 0; t++) { s.inv = 10; s.y = (436 / 2) * SCALE; s.vy = 0; step(s, 0); }
+  assert.equal(s.hearts.length, 1, 'coração nasceu no tick 18000');
+  // leva o pássaro até ele
+  const h = s.hearts[0];
+  s.y = h.y; s.inv = 10;
+  for (let i = 0; i < 600 && s.hearts.length > 0; i++) { s.y = h.y; s.vy = 0; s.inv = 10; step(s, 0); }
+  assert.equal(s.hearts.length, 0, 'coração foi pego');
+  assert.equal(s.lives, 2);
+});
+
 test('seeds diferentes geram partidas diferentes', () => {
   const a = createSim(1), b = createSim(2);
   for (let i = 0; i < 300; i++) { step(a, 0); step(b, 0); }

@@ -34,8 +34,8 @@ export default function FlappyGame() {
   const sessionRef = useRef<Session | null>(null); // sessão da partida em curso
   const nextSessionRef = useRef<Promise<Session> | null>(null); // pré-buscada
   const deathAtRef = useRef(0);
-  const hudRef = useRef<{ score: HTMLElement | null; coins: HTMLElement | null; weapon: HTMLElement | null; combo: HTMLElement | null; fx: HTMLElement | null }>({ score: null, coins: null, weapon: null, combo: null, fx: null });
-  const lastHudRef = useRef({ score: -1, coins: -1, weapon: -1, combo: -1, fx: '' });
+  const hudRef = useRef<{ score: HTMLElement | null; coins: HTMLElement | null; weapon: HTMLElement | null; combo: HTMLElement | null; fx: HTMLElement | null; lives: HTMLElement | null }>({ score: null, coins: null, weapon: null, combo: null, fx: null, lives: null });
+  const lastHudRef = useRef({ score: -1, coins: -1, weapon: -1, combo: -1, fx: '', lives: -1 });
 
   const [status, setStatus] = useState<Status>('menu');
   const [result, setResult] = useState<RunResult | null>(null);
@@ -207,6 +207,8 @@ export default function FlappyGame() {
           case 'deny': sound.play('deny', 0.6); vibrate(40); break;
           case 'shield_pop': sound.play('shield', 0.8); vibrate(60); break;
           case 'pipe_break': sound.play('break', 0.85, 0.92 + Math.random() * 0.16, 40); vibrate(25); break;
+          case 'life_lost': sound.play('die', 0.6, 1.6); vibrate([50, 40, 50]); break;
+          case 'heart': sound.play('buy', 0.7, 1.25); vibrate(20); break;
           case 'combo_up': if (ev.v >= 3) sound.play('combo', 0.5, 1 + (ev.v - 3) * 0.12); break;
           case 'die': sound.play('die', 0.9); vibrate([60, 40, 120]); break;
         }
@@ -221,6 +223,11 @@ export default function FlappyGame() {
       if (h.combo && l.combo !== s.combo) { h.combo.textContent = s.combo > 1 ? `COMBO x${s.combo}` : ''; h.combo.dataset.hot = s.combo >= 5 ? '1' : '0'; l.combo = s.combo; }
       const fx = `${s.shield ? '🛡️ ' : ''}${s.magnet > 0 ? '🧲 ' : ''}`;
       if (h.fx && l.fx !== fx) { h.fx.textContent = fx; l.fx = fx; }
+      if (h.lives && l.lives !== s.lives) {
+        h.lives.textContent = `x${s.lives}`;
+        h.lives.classList.remove('hud-pop'); void h.lives.offsetWidth; h.lives.classList.add('hud-pop');
+        l.lives = s.lives;
+      }
     };
 
     const frame = (now: number) => {
@@ -272,7 +279,7 @@ export default function FlappyGame() {
   // Menu: garante HUD zerado
   useEffect(() => {
     if (status === 'menu' || status === 'playing') {
-      lastHudRef.current = { score: -1, coins: -1, weapon: -1, combo: -1, fx: '' };
+      lastHudRef.current = { score: -1, coins: -1, weapon: -1, combo: -1, fx: '', lives: -1 };
     }
   }, [status]);
 
@@ -306,6 +313,9 @@ export default function FlappyGame() {
           <span ref={(el) => { hudRef.current.combo = el; }} className="hud-combo text-amber-300 font-black text-base" data-hot="0"></span>
         </div>
         <div className="flex items-center gap-3">
+          <span className="inline-flex items-center gap-1 font-black text-red-400" title="Vidas">
+            <span className="text-base">❤️</span><span ref={(el) => { hudRef.current.lives = el; }} className="tabular-nums">x3</span>
+          </span>
           <span ref={(el) => { hudRef.current.fx = el; }} className="text-base"></span>
           <span className="text-cyan-300 font-bold text-xs tracking-widest" ref={(el) => { hudRef.current.weapon = el; }}>PIPOCO ▮▯▯▯</span>
           <span className="inline-flex items-center gap-1 bg-amber-400 text-black font-black rounded-full px-2.5 py-0.5">
@@ -323,7 +333,7 @@ export default function FlappyGame() {
           onPointerUp={onPointerUp}
           onPointerCancel={onPointerUp}
           onContextMenu={(e) => e.preventDefault()}
-          className="block mx-auto rounded-xl shadow-[0_10px_40px_rgba(0,0,0,0.6)] touch-none cursor-pointer"
+          className={`block mx-auto rounded-xl shadow-[0_10px_40px_rgba(0,0,0,0.6)] touch-none ${status === 'playing' ? 'cursor-none' : 'cursor-pointer'}`}
           style={{ imageRendering: 'auto' }}
         />
 
