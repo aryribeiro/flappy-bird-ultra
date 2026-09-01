@@ -582,13 +582,16 @@ export class Renderer {
       (afford ? this.atlasGold : this.atlasRed).draw(g, `$${c.price}`, x, y + bob - 30, 0.7);
     }
 
-    // corações de vida (pulsam, com preço como as cápsulas)
+    // corações de vida: maiores que as cápsulas, com halo pulsante e rótulo "VIDA $30"
     for (const h of s.hearts) {
-      const x = px(h.x) - speedPx * alpha, y = px(h.y) + Math.sin(this.time / 200 + h.id) * 4;
-      const sc = 1 + Math.sin(this.time / 110) * 0.12;
-      g.drawImage(this.heart, x - 20 * sc, y - 20 * sc, 40 * sc, 40 * sc);
+      const x = px(h.x) - speedPx * alpha, y = px(h.y) + Math.sin(this.time / 200 + h.id) * 5;
+      const sc = 1 + Math.sin(this.time / 110) * 0.14;
+      g.globalAlpha = 0.28 + Math.sin(this.time / 140) * 0.1;
+      g.fillStyle = '#ffffff'; g.beginPath(); g.arc(x, y, 34 * sc, 0, Math.PI * 2); g.fill();
+      g.globalAlpha = 1;
+      g.drawImage(this.heart, x - 26 * sc, y - 26 * sc, 52 * sc, 52 * sc);
       const afford = s.coins$ >= h.price && s.lives < 3;
-      (afford ? this.atlasGold : this.atlasRed).draw(g, `$${h.price}`, x, y - 32, 0.7);
+      (afford ? this.atlasGold : this.atlasRed).draw(g, `VIDA $${h.price}`, x, y - 40, 0.75);
     }
 
     // inimigos

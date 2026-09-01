@@ -11,7 +11,7 @@
 
 import { rngInt, rngRange } from './prng';
 
-export const SIM_VERSION = 'fbu-7';
+export const SIM_VERSION = 'fbu-8';
 
 export const TICK_RATE = 60;
 export const TICK_MS = 1000 / TICK_RATE;
@@ -62,10 +62,13 @@ export const LIVES_START = 3;
 export const LIVES_MAX = 3;
 export const INV_HIT_TICKS = 180;
 export const INV_SHIELD_TICKS = 90;
-// Coração: a cada 2 min de simulação, COMPRADO por $30 (acima de qualquer arma) ao encostar.
-export const HEART_EVERY_TICKS = 2 * 60 * TICK_RATE;
+// Coração: item de ritmo por CANOS (como as cápsulas), a cada 15 canos, no meio do caminho entre
+// dois canos (nunca em cima de uma cápsula). COMPRADO por $30 (acima de qualquer arma) ao encostar.
+// (Antes era por tempo — 1 a cada 2 min, cruzando a tela em 3 s: o jogador não via.)
+export const HEART_EVERY_PIPES = 15;
+export const HEART_PIPE_OFFSET = 7; // 1º coração no 8º cano; depois 23º, 38º...
 export const HEART_PRICE = 30;
-export const HEART_R = F(14);
+export const HEART_R = F(16);
 
 // Pontuação
 export const PTS_PIPE = 10;
@@ -219,6 +222,11 @@ function spawnPipe(s: SimState) {
     }
     const price = kind === 'weapon' ? WEAPONS[tier].price : CAPSULE_PRICE[kind];
     s.capsules.push({ id: s.nextId++, kind, x: x + (PIPE_W >> 1), y: gapY, price, denied: false, tier });
+  }
+
+  // Coração de vida: no meio do caminho entre este cano e o próximo, na altura deste gap
+  if (n % HEART_EVERY_PIPES === HEART_PIPE_OFFSET) {
+    s.hearts.push({ id: s.nextId++, x: x + (PIPE_W >> 1) + (PIPE_SPACING >> 1), y: gapY, price: HEART_PRICE, denied: false });
   }
 }
 
@@ -383,11 +391,8 @@ export function step(s: SimState, input: number): void {
     }
   }
 
-  // --- corações de vida: um a cada 2 min, no meio do trecho entre canos, na altura do último gap.
-  // Compra ao encostar (como as cápsulas): precisa de $HEART_PRICE e de vida faltando.
-  if (s.tick % HEART_EVERY_TICKS === 0) {
-    s.hearts.push({ id: s.nextId++, x: s.nextPipeX - (PIPE_SPACING >> 1), y: s.lastGapY, price: HEART_PRICE, denied: false });
-  }
+  // --- corações de vida (nascem em spawnPipe): compra ao encostar, como as cápsulas —
+  // precisa de $HEART_PRICE e de vida faltando.
   for (let i = s.hearts.length - 1; i >= 0; i--) {
     const h = s.hearts[i];
     h.x -= sp;

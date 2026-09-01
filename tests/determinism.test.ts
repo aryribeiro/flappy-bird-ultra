@@ -146,13 +146,17 @@ test('vidas: colisão gasta 1 vida, teleporta ao meio com invencibilidade; escud
   assert.equal(s.lives, 0);
 });
 
-test('coração aparece a cada 2 min e é COMPRADO por $30 (sem saldo, nega; vida cheia, não cobra)', () => {
-  // Nos dois auxiliares, moedas e cápsulas do campo são apagadas a cada tick: o teste controla o saldo (o coração nasce na altura do gap, onde ficam as cápsulas).
+test('coração nasce a cada 15 canos (1º no 8º) e é COMPRADO por $30 (sem saldo, nega; vida cheia, não cobra)', () => {
+  // Nos dois auxiliares, moedas e cápsulas do campo são apagadas a cada tick: o teste controla o saldo.
   const spawnHeart = (s: SimState) => {
     for (let t = 0; t < 7200 && s.hearts.length === 0; t++) { s.inv = 10; s.y = (436 / 2) * SCALE; s.vy = 0; s.coins.length = 0; s.capsules.length = 0; step(s, 0); }
-    assert.equal(s.hearts.length, 1, 'coração nasceu no tick 7200');
-    assert.equal(s.tick, 7200);
-    return s.hearts[0];
+    assert.equal(s.hearts.length, 1, 'coração nasceu');
+    assert.equal(s.pipesSpawned, 8, 'nasce junto do 8º cano');
+    assert.ok(s.tick < 1200, `cedo na partida (tick ${s.tick})`);
+    // nunca em cima de uma cápsula: fica no meio do trecho entre canos
+    const h = s.hearts[0];
+    assert.ok(s.pipes.every((p) => Math.abs(p.x + 32 * SCALE - h.x) > 100 * SCALE), 'longe do centro de qualquer cano');
+    return h;
   };
   const touch = (s: SimState, h: { y: number }) => {
     for (let i = 0; i < 600 && s.hearts.length > 0 && !s.events.some((e) => e.type === 'deny' || e.type === 'heart'); i++) {
