@@ -18,7 +18,7 @@ Flappy Bird com tiro: voe pelos canos, atire nos inimigos com **ESPAÇO**, compr
 - **Economia sob pressão.** Moedas aparecem no voo; a cada 4 canos surge uma cápsula no centro do gap. Encostou com saldo, comprou — sem loja, sem pausa. Sem saldo, ela passa.
 - **Progressão de arma:** PIPOCO → DUPLO ($6) → LEQUE ($14) → LASER ($24, atravessa 3 inimigos e **destrói canos**). Depois do LASER, as cápsulas trazem ESCUDO ($8, absorve 1 inimigo) e IMÃ ($6, atrai moedas por 10 s).
 - **Pontuação:** cano = 10 · abate = 25/40/90 × combo (até x8; o combo cai após 3 s sem abater). Moedas não pontuam — são recurso.
-- **3 vidas (❤️ x3 no topo).** Bater num cano, inimigo ou no chão gasta uma vida: o pássaro volta ao meio da tela piscando, invencível por 3 s, e **o tiro volta ao PIPOCO** — as moedas ficam, mas as armas precisam ser compradas de novo. A cada 15 canos (o primeiro no 8º) aparece **um coração à venda por $30** (mais caro que qualquer arma), no meio do caminho entre dois canos, que recupera uma vida (máx. 3) — sem saldo, ele passa. O **ESCUDO** absorve uma colisão — com inimigo *ou* com cano.
+- **3 vidas (❤️ x3 no topo).** Bater num cano, inimigo ou no chão gasta uma vida: o pássaro volta ao meio da tela piscando, invencível por 3 s, e **o tiro volta ao PIPOCO** — as moedas ficam, mas as armas precisam ser compradas de novo. A cada 16 canos aparece **um coração à venda por $30** (mais caro que qualquer arma), no meio do caminho entre dois canos, que recupera uma vida (máx. 3) — sem saldo, ele passa. O **ESCUDO** absorve uma colisão — com inimigo *ou* com cano.
 
 ## Arquitetura (o que importa)
 

@@ -11,7 +11,7 @@
 
 import { rngInt, rngRange } from './prng';
 
-export const SIM_VERSION = 'fbu-8';
+export const SIM_VERSION = 'fbu-9';
 
 export const TICK_RATE = 60;
 export const TICK_MS = 1000 / TICK_RATE;
@@ -65,8 +65,8 @@ export const INV_SHIELD_TICKS = 90;
 // Coração: item de ritmo por CANOS (como as cápsulas), a cada 15 canos, no meio do caminho entre
 // dois canos (nunca em cima de uma cápsula). COMPRADO por $30 (acima de qualquer arma) ao encostar.
 // (Antes era por tempo — 1 a cada 2 min, cruzando a tela em 3 s: o jogador não via.)
-export const HEART_EVERY_PIPES = 15;
-export const HEART_PIPE_OFFSET = 7; // 1º coração no 8º cano; depois 23º, 38º...
+export const HEART_EVERY_PIPES = 16;
+export const HEART_PIPE_OFFSET = 15; // logo após o 16º cano; depois 32º, 48º... (16k+15 nunca cai em cano de cápsula, múltiplo de 4)
 export const HEART_PRICE = 30;
 export const HEART_R = F(16);
 

@@ -1,5 +1,5 @@
 import { createClient } from '@libsql/client';
-import { AVATAR_EMOJIS } from './avatars';
+import { AVATAR_EMOJIS, LEGACY_EMOJIS } from './avatars';
 
 export interface LeaderboardEntry {
   id?: number;
@@ -76,7 +76,7 @@ async function withRetry<T>(fn: () => Promise<T>, attempts = 3): Promise<T> {
   throw lastErr;
 }
 
-const VALID_EMOJIS = new Set(AVATAR_EMOJIS.map((a) => a.emoji));
+const VALID_EMOJIS = new Set([...AVATAR_EMOJIS.map((a) => a.emoji), ...LEGACY_EMOJIS]);
 
 export function sanitizeName(name: unknown): string {
   if (typeof name !== 'string') return DEFAULT_NAME;

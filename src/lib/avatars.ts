@@ -24,7 +24,7 @@ export const AVATAR_EMOJIS: AvatarEmoji[] = [
   { emoji: '🥷', name: 'Ninja' },
   { emoji: '🧙', name: 'Mago' },
   { emoji: '👩‍🚀', name: 'Astronauta' },
-  { emoji: '👨‍🚀', name: 'Astronauta' },
+  { emoji: '🦇', name: 'Morcego' },
   { emoji: '🤖', name: 'Robô' },
   { emoji: '👾', name: 'Alien' },
   { emoji: '👻', name: 'Fantasma' },
@@ -37,4 +37,13 @@ export const AVATAR_EMOJIS: AvatarEmoji[] = [
   { emoji: '🤠', name: 'Caubói' },
   { emoji: '🥳', name: 'Festa' },
   { emoji: '🤩', name: 'Fã' },
+  { emoji: '🐺', name: 'Lobo' },
+  { emoji: '🦁', name: 'Leão' },
+  { emoji: '🦋', name: 'Borboleta' },
+  { emoji: '🦈', name: 'Tubarão' },
+  { emoji: '🎃', name: 'Abóbora' },
+  { emoji: '🧟', name: 'Zumbi' },
 ];
+
+// Avatares retirados do seletor, mas ainda aceitos na leitura (recordes antigos continuam com o emoji escolhido)
+export const LEGACY_EMOJIS: string[] = ['👨‍🚀'];
