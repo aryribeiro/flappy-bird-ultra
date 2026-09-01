@@ -11,7 +11,7 @@
 
 import { rngInt, rngRange } from './prng';
 
-export const SIM_VERSION = 'fbu-6';
+export const SIM_VERSION = 'fbu-7';
 
 export const TICK_RATE = 60;
 export const TICK_MS = 1000 / TICK_RATE;
@@ -62,7 +62,9 @@ export const LIVES_START = 3;
 export const LIVES_MAX = 3;
 export const INV_HIT_TICKS = 180;
 export const INV_SHIELD_TICKS = 90;
-export const HEART_EVERY_TICKS = 5 * 60 * TICK_RATE;
+// Coração: a cada 2 min de simulação, COMPRADO por $30 (acima de qualquer arma) ao encostar.
+export const HEART_EVERY_TICKS = 2 * 60 * TICK_RATE;
+export const HEART_PRICE = 30;
 export const HEART_R = F(14);
 
 // Pontuação
@@ -120,7 +122,7 @@ export interface Enemy { id: number; kind: EnemyKind; x: number; y: number; vx: 
 export interface Bullet { id: number; x: number; y: number; vx: number; vy: number; dmg: number; pierce: number; len: number; tier: WeaponTier; hit: number[]; }
 export interface Coin { id: number; x: number; y: number; spin: number; }
 export interface Capsule { id: number; kind: CapsuleKind; x: number; y: number; price: number; denied: boolean; tier: WeaponTier; }
-export interface Heart { id: number; x: number; y: number; }
+export interface Heart { id: number; x: number; y: number; price: number; denied: boolean; }
 
 export type SimEventType =
   | 'flap' | 'shoot' | 'hit' | 'kill' | 'pipe' | 'coin' | 'buy' | 'deny'
@@ -381,18 +383,27 @@ export function step(s: SimState, input: number): void {
     }
   }
 
-  // --- corações de cura: um a cada 5 min, no meio do trecho entre canos, na altura do último gap
+  // --- corações de vida: um a cada 2 min, no meio do trecho entre canos, na altura do último gap.
+  // Compra ao encostar (como as cápsulas): precisa de $HEART_PRICE e de vida faltando.
   if (s.tick % HEART_EVERY_TICKS === 0) {
-    s.hearts.push({ id: s.nextId++, x: s.nextPipeX - (PIPE_SPACING >> 1), y: s.lastGapY });
+    s.hearts.push({ id: s.nextId++, x: s.nextPipeX - (PIPE_SPACING >> 1), y: s.lastGapY, price: HEART_PRICE, denied: false });
   }
   for (let i = s.hearts.length - 1; i >= 0; i--) {
     const h = s.hearts[i];
     h.x -= sp;
     if (circles(BIRD_X, s.y, BIRD_R + F(10), h.x, h.y, HEART_R)) {
-      if (s.lives < LIVES_MAX) s.lives++;
-      emit(s, 'heart', h.x, h.y, s.lives);
-      s.hearts.splice(i, 1);
-      continue;
+      if (s.lives >= LIVES_MAX) {
+        if (!h.denied) { h.denied = true; emit(s, 'heart', h.x, h.y, s.lives); } // "VIDA CHEIA", sem cobrar
+      } else if (s.coins$ >= h.price) {
+        s.coins$ -= h.price;
+        s.lives++;
+        emit(s, 'heart', h.x, h.y, s.lives);
+        s.hearts.splice(i, 1);
+        continue;
+      } else if (!h.denied) {
+        h.denied = true;
+        emit(s, 'deny', h.x, h.y, h.price - s.coins$);
+      }
     }
     if (h.x < F(-30)) s.hearts.splice(i, 1);
   }

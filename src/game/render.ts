@@ -582,11 +582,13 @@ export class Renderer {
       (afford ? this.atlasGold : this.atlasRed).draw(g, `$${c.price}`, x, y + bob - 30, 0.7);
     }
 
-    // corações de cura (pulsam)
+    // corações de vida (pulsam, com preço como as cápsulas)
     for (const h of s.hearts) {
       const x = px(h.x) - speedPx * alpha, y = px(h.y) + Math.sin(this.time / 200 + h.id) * 4;
       const sc = 1 + Math.sin(this.time / 110) * 0.12;
       g.drawImage(this.heart, x - 20 * sc, y - 20 * sc, 40 * sc, 40 * sc);
+      const afford = s.coins$ >= h.price && s.lives < 3;
+      (afford ? this.atlasGold : this.atlasRed).draw(g, `$${h.price}`, x, y - 32, 0.7);
     }
 
     // inimigos

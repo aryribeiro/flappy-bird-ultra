@@ -146,18 +146,32 @@ test('vidas: colisão gasta 1 vida, teleporta ao meio com invencibilidade; escud
   assert.equal(s.lives, 0);
 });
 
-test('coração de cura aparece a cada 5 min e recupera até 3 vidas', () => {
-  const s = createSim(7);
-  s.lives = 1;
-  // avança até o coração nascer (tick 18000), mantendo o pássaro invencível e parado no centro do teste
-  for (let t = 0; t < 18000 && s.hearts.length === 0; t++) { s.inv = 10; s.y = (436 / 2) * SCALE; s.vy = 0; step(s, 0); }
-  assert.equal(s.hearts.length, 1, 'coração nasceu no tick 18000');
-  // leva o pássaro até ele
-  const h = s.hearts[0];
-  s.y = h.y; s.inv = 10;
-  for (let i = 0; i < 600 && s.hearts.length > 0; i++) { s.y = h.y; s.vy = 0; s.inv = 10; step(s, 0); }
-  assert.equal(s.hearts.length, 0, 'coração foi pego');
-  assert.equal(s.lives, 2);
+test('coração aparece a cada 2 min e é COMPRADO por $30 (sem saldo, nega; vida cheia, não cobra)', () => {
+  const spawnHeart = (s: SimState) => {
+    for (let t = 0; t < 7200 && s.hearts.length === 0; t++) { s.inv = 10; s.y = (436 / 2) * SCALE; s.vy = 0; step(s, 0); }
+    assert.equal(s.hearts.length, 1, 'coração nasceu no tick 7200');
+    assert.equal(s.tick, 7200);
+    return s.hearts[0];
+  };
+  const touch = (s: SimState, h: { y: number }) => {
+    for (let i = 0; i < 600 && s.hearts.length > 0 && !s.events.some((e) => e.type === 'deny' || e.type === 'heart'); i++) {
+      s.y = h.y; s.vy = 0; s.inv = 10; step(s, 0);
+    }
+  };
+  // com saldo e vida faltando: compra
+  const a = createSim(7); a.lives = 1; a.coins$ = 35;
+  touch(a, spawnHeart(a));
+  assert.equal(a.hearts.length, 0, 'coração comprado some');
+  assert.equal(a.lives, 2); assert.equal(a.coins$, 5);
+  // sem saldo: nega e o coração continua
+  const b = createSim(7); b.lives = 1; b.coins$ = 10;
+  touch(b, spawnHeart(b));
+  assert.ok(b.events.some((e) => e.type === 'deny'), 'negou por falta de moedas');
+  assert.equal(b.lives, 1); assert.equal(b.coins$, 10); assert.equal(b.hearts.length, 1);
+  // vida cheia: não cobra
+  const c = createSim(7); c.lives = 3; c.coins$ = 50;
+  touch(c, spawnHeart(c));
+  assert.equal(c.lives, 3); assert.equal(c.coins$, 50);
 });
 
 test('seeds diferentes geram partidas diferentes', () => {
