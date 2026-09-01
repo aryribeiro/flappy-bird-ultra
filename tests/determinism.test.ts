@@ -123,12 +123,18 @@ test('vidas: colisão gasta 1 vida, teleporta ao meio com invencibilidade; escud
   assert.ok(s.inv > 0 && s.inv <= 90);
   waitInv(s);
 
-  // 2) sem escudo: perde vida, volta ao centro piscando
+  // 2) sem escudo: perde vida, volta ao centro piscando, TIRO volta ao PIPOCO (moedas ficam)
+  s.weapon = 4; s.coins$ = 17;
+  s.capsules.push({ id: 9999, kind: 'weapon', x: 500 * SCALE, y: CENTER, price: 24, denied: true, tier: 4 });
   assert.equal(crash(s), 'life_lost');
   assert.equal(s.lives, 2);
   assert.equal(s.y, CENTER);
   assert.equal(s.inv, 180);
   assert.equal(s.status, 'playing');
+  assert.equal(s.weapon, 1, 'arma resetada para PIPOCO');
+  assert.equal(s.coins$, 17, 'moedas preservadas');
+  const cap = s.capsules.find((c) => c.id === 9999)!;
+  assert.equal(cap.tier, 2); assert.equal(cap.price, 6); assert.equal(cap.denied, false);
   waitInv(s);
 
   // 3) e 4) mais duas batidas: morre na terceira vida

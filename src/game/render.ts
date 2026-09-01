@@ -482,6 +482,7 @@ export class Renderer {
           this.flash = Math.max(this.flash, 0.5); this.flashColor = PAL.red;
           juice.hitStopMs = Math.max(juice.hitStopMs, 140);
           this.text('-1 VIDA', px(BIRD_X), SKY_H / 2 - 40, this.atlasRed, 1.3, 1200);
+          this.text('TIRO: PIPOCO', px(BIRD_X), SKY_H / 2 + 44, this.atlasSmall, 1, 1400);
           this.visRot = 0;
           break;
         case 'heart':

@@ -11,7 +11,7 @@
 
 import { rngInt, rngRange } from './prng';
 
-export const SIM_VERSION = 'fbu-5';
+export const SIM_VERSION = 'fbu-6';
 
 export const TICK_RATE = 60;
 export const TICK_MS = 1000 / TICK_RATE;
@@ -297,12 +297,18 @@ function takeHit(s: SimState, cause: SimState['deathCause'], hx: number, hy: num
   }
   s.lives--;
   if (s.lives <= 0) { die(s, cause); return true; }
-  // perde a vida: volta ao meio da tela, piscando e invencível por 3 s; combo zera
+  // perde a vida: volta ao meio da tela, piscando e invencível por 3 s; combo zera;
+  // o TIRO volta ao PIPOCO (moedas ficam) — cápsulas de arma em voo passam a oferecer o próximo nível real
   s.y = F(SKY_H / 2);
   s.vy = 0;
   s.inv = INV_HIT_TICKS;
   s.combo = 1;
   s.comboTimer = 0;
+  s.weapon = 1;
+  s.cooldown = 0;
+  for (const c of s.capsules) {
+    if (c.kind === 'weapon') { c.tier = 2; c.price = WEAPONS[2].price; c.denied = false; }
+  }
   emit(s, 'life_lost', hx, hy, s.lives);
   return false;
 }
